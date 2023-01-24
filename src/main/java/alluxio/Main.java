@@ -22,7 +22,7 @@ public final class Main {
     S3Object object = s3.getObject(bucket, key);
     S3ObjectInputStream s3is = object.getObjectContent();
     FileOutputStream fos = new FileOutputStream(new File(key));
-    byte[] read_buf = new byte[128 * 1024]; // 128KB each read and write
+    byte[] read_buf = new byte[4 * 1024 * 1024]; // 128KB each read and write
     int read_len = 0;
     while ((read_len = s3is.read(read_buf)) > 0) {
       fos.write(read_buf, 0, read_len);
