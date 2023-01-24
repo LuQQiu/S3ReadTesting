@@ -7,6 +7,7 @@ import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.s3.transfer.Download;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 
@@ -30,10 +31,12 @@ public final class Main {
     String key = "alluxio-2.8.1-bin.tar.gz";
     String bucket = "lu-asf-demo";
     long start = System.currentTimeMillis();
-    transferManager.download(bucket, key, new File(key));
+    Download download = transferManager.download(bucket, key, new File(key));
+    download.waitForCompletion();
     long end = System.currentTimeMillis();
     long second = (end - start) / 1000;
     System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
+    transferManager.shutdownNow();
   }
   
   public static void readSeparate() throws Exception {
