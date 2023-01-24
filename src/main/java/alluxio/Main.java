@@ -17,7 +17,7 @@ public final class Main {
     String key = "alluxio-2.8.1-bin.tar.gz";
     String bucket = "lu-asf-demo";
     System.out.format("Downloading %s from S3 bucket %s...\n", key, bucket);
-    final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.DEFAULT_REGION).build();
+    final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.US_EAST_1).build();
     long start = System.currentTimeMillis();
     S3Object object = s3.getObject(bucket, key);
     S3ObjectInputStream s3is = object.getObjectContent();
