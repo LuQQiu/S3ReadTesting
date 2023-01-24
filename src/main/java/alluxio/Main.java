@@ -7,13 +7,35 @@ import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
+
+import java.io.File;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class Main {
 
   public static void main(String[] args) throws Exception {
-    readSeparate();
+    transferManager();
     System.exit(0);
   }
+
+  public static void transferManager() throws Exception {
+    final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.US_EAST_1).build();
+    ExecutorService service = Executors.newFixedThreadPool(20);
+    TransferManager transferManager = TransferManagerBuilder.standard()
+        .withS3Client(s3)
+        .withExecutorFactory(() -> service).build();
+    String key = "alluxio-2.8.1-bin.tar.gz";
+    String bucket = "lu-asf-demo";
+    long start = System.currentTimeMillis();
+    transferManager.download(bucket, key, new File(key));
+    long end = System.currentTimeMillis();
+    long second = (end - start) / 1000;
+    System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
+  }
+  
   public static void readSeparate() throws Exception {
     String key = "alluxio-2.8.1-bin.tar.gz";
     String bucket = "lu-asf-demo";
