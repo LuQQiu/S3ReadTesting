@@ -28,7 +28,7 @@ public final class Main {
     byte[] buffer = new byte[batchSize];
     while (true) {
       try {
-        request.setRange(pos, pos + batchSize);
+        request.setRange(pos, pos + batchSize - 1);
         object = s3.getObject(request);
       } catch (AmazonS3Exception e) {
         if (e.getStatusCode() == 416) {
