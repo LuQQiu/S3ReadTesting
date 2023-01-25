@@ -17,7 +17,6 @@ import software.amazon.awssdk.transfer.s3.model.DownloadFileRequest;
 import software.amazon.awssdk.transfer.s3.model.FileDownload;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 public final class Main {
