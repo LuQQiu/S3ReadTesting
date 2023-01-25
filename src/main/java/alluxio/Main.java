@@ -70,7 +70,7 @@ public final class Main {
     File file = new File(key);
     file.delete();
     CompletableFuture<GetObjectResponse> futureGet = s3AsyncClient.getObject(objectRequest,
-        AsyncResponseTransformer.toFile(file);
+        AsyncResponseTransformer.toFile(file));
     futureGet.whenComplete((resp, err) -> {
       try {
         if (resp != null) {
