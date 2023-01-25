@@ -18,6 +18,8 @@ import software.amazon.awssdk.transfer.s3.model.FileDownload;
 
 import java.io.File;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class Main {
 
@@ -41,9 +43,11 @@ public final class Main {
             .minimumPartSizeInBytes(8 * 1024L * 1024)
             .build();
 
+    ExecutorService service = Executors.newFixedThreadPool(20);
     S3TransferManager transferManager =
         S3TransferManager.builder()
             .s3Client(s3AsyncClient)
+            .executor(service)
             .build();
 
     DownloadFileRequest downloadFileRequest =
@@ -57,6 +61,10 @@ public final class Main {
     long end = System.currentTimeMillis();
     long second = (end - start) / 1000;
     System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
+    // 83MB/s default one without executor
+    s3AsyncClient.close();
+    service.shutdown();
+    transferManager.close();
   }
 
   public static void getObjectWhole() throws Exception {
@@ -84,6 +92,7 @@ public final class Main {
     long end = System.currentTimeMillis();
     long second = (end - start) / 1000;
     System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
+    // 92 MB/s
   }
 
   public static void readAsBytesWholeObject() {
@@ -106,6 +115,7 @@ public final class Main {
     long end = System.currentTimeMillis();
     long second = (end - start) / 1000;
     System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
+    // 80 MB/s
   }
 
   public static void asyncClientWholeObject() {
