@@ -17,6 +17,7 @@ import software.amazon.awssdk.transfer.s3.model.DownloadFileRequest;
 import software.amazon.awssdk.transfer.s3.model.FileDownload;
 
 import java.io.File;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -66,8 +67,10 @@ public final class Main {
         .key(key)
         .bucket(bucket)
         .build();
+    File file = new File(key);
+    file.delete();
     CompletableFuture<GetObjectResponse> futureGet = s3AsyncClient.getObject(objectRequest,
-        AsyncResponseTransformer.toFile(new File(key)));
+        AsyncResponseTransformer.toFile(file);
     futureGet.whenComplete((resp, err) -> {
       try {
         if (resp != null) {
