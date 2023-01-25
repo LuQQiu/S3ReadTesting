@@ -1,99 +1,144 @@
 package alluxio;
 
-import com.amazonaws.regions.Regions;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
-import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
-import com.amazonaws.services.s3.transfer.Download;
-import com.amazonaws.services.s3.transfer.TransferManager;
-import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.async.AsyncResponseTransformer;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.CompletedFileDownload;
+import software.amazon.awssdk.transfer.s3.model.DownloadFileRequest;
+import software.amazon.awssdk.transfer.s3.model.FileDownload;
 
 import java.io.File;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 
 public final class Main {
 
   public static void main(String[] args) throws Exception {
     transferManager();
+    getObjectWhole();
+    readAsBytesWholeObject();
+    asyncClientWholeObject();
     System.exit(0);
   }
 
   public static void transferManager() throws Exception {
-    final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.US_EAST_1).build();
-    ExecutorService service = Executors.newFixedThreadPool(20);
-    TransferManager transferManager = TransferManagerBuilder.standard()
-        .withS3Client(s3)
-        .withExecutorFactory(() -> service).build();
     String key = "alluxio-2.8.1-bin.tar.gz";
     String bucket = "lu-asf-demo";
+    Region region = Region.US_EAST_1;
+    S3AsyncClient s3AsyncClient =
+        S3AsyncClient.crtBuilder()
+            .credentialsProvider(DefaultCredentialsProvider.create())
+            .region(Region.US_EAST_1)
+            .targetThroughputInGbps(20.0)
+            .minimumPartSizeInBytes(8 * 1024L * 1024)
+            .build();
+
+    S3TransferManager transferManager =
+        S3TransferManager.builder()
+            .s3Client(s3AsyncClient)
+            .build();
+
+    DownloadFileRequest downloadFileRequest =
+        DownloadFileRequest.builder()
+            .getObjectRequest(b -> b.bucket(bucket).key(key))
+            .destination(new File(key))
+            .build();
     long start = System.currentTimeMillis();
-    Download download = transferManager.download(bucket, key, new File(key));
-    download.waitForCompletion();
+    FileDownload downloadFile = transferManager.downloadFile(downloadFileRequest);
+    CompletedFileDownload downloadResult = downloadFile.completionFuture().join();
     long end = System.currentTimeMillis();
     long second = (end - start) / 1000;
     System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
-    transferManager.shutdownNow();
   }
-  
-  public static void readSeparate() throws Exception {
+
+  public static void getObjectWhole() throws Exception {
     String key = "alluxio-2.8.1-bin.tar.gz";
     String bucket = "lu-asf-demo";
-    System.out.format("Downloading %s from S3 bucket %s...\n", key, bucket);
-    final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.US_EAST_1).build();
-    long start = System.currentTimeMillis();
-    GetObjectRequest request = new GetObjectRequest(bucket, key);
+    Region region = Region.US_EAST_1;
+    S3Client s3 = S3Client.builder()
+        .region(region)
+        .credentialsProvider(DefaultCredentialsProvider.create())
+        .build();
 
-    int pos = 0;
+    GetObjectRequest objectRequest = GetObjectRequest
+        .builder()
+        .key(key)
+        .bucket(bucket)
+        .build();
+    long start = System.currentTimeMillis();
+    ResponseInputStream<GetObjectResponse> inputStream = s3.getObject(objectRequest);
     int batchSize = 4 * 1024 * 1024;
-    S3Object object;
     byte[] buffer = new byte[batchSize];
-    while (true) {
-      try {
-        request.setRange(pos, pos + batchSize - 1);
-        object = s3.getObject(request);
-      } catch (AmazonS3Exception e) {
-        if (e.getStatusCode() == 416) {
-          // InvalidRange exception when mPos >= file length
-          break;
-        }
-        throw e;
-      }
-      try (S3ObjectInputStream in = object.getObjectContent()) {
-        int currentRead = 0;
-        int totalRead = 0;
-        while (true) {
-          currentRead = in.read(buffer, totalRead, batchSize - totalRead);
-          if (currentRead <= 0) {
-            break;
-          }
-          totalRead += currentRead;
-        }
-        pos += totalRead;
-      }
-    }
-    long end = System.currentTimeMillis();
-    long second = (end - start) / 1000;
-    System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
-  }
-
-  public static void readWholeObject() throws Exception {
-    String key = "alluxio-2.8.1-bin.tar.gz";
-    String bucket = "lu-asf-demo";
-    System.out.format("Downloading %s from S3 bucket %s...\n", key, bucket);
-    final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.US_EAST_1).build();
-    long start = System.currentTimeMillis();
-    S3Object object = s3.getObject(bucket, key);
-    S3ObjectInputStream s3is = object.getObjectContent();
-    byte[] read_buf = new byte[4 * 1024 * 1024]; // 128KB each read and write
     int read_len = 0;
-    while ((read_len = s3is.read(read_buf)) > 0) {
+    while ((read_len = inputStream.read(buffer)) > 0) {
       //
     }
-    s3is.close();
+    long end = System.currentTimeMillis();
+    long second = (end - start) / 1000;
+    System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
+  }
+
+  public static void readAsBytesWholeObject() {
+    String key = "alluxio-2.8.1-bin.tar.gz";
+    String bucket = "lu-asf-demo";
+    Region region = Region.US_EAST_1;
+    S3Client s3 = S3Client.builder()
+        .region(region)
+        .credentialsProvider(DefaultCredentialsProvider.create())
+        .build();
+    
+    GetObjectRequest objectRequest = GetObjectRequest
+        .builder()
+        .key(key)
+        .bucket(bucket)
+        .build();
+    long start = System.currentTimeMillis();
+    ResponseBytes<GetObjectResponse> objectBytes = s3.getObjectAsBytes(objectRequest);
+    byte[] data = objectBytes.asByteArray();
+    long end = System.currentTimeMillis();
+    long second = (end - start) / 1000;
+    System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
+  }
+
+  public static void asyncClientWholeObject() {
+    String key = "alluxio-2.8.1-bin.tar.gz";
+    String bucket = "lu-asf-demo";
+    ProfileCredentialsProvider credentialsProvider = ProfileCredentialsProvider.create();
+    Region region = Region.US_EAST_1;
+    S3AsyncClient s3AsyncClient = S3AsyncClient.builder()
+        .region(region)
+        .credentialsProvider(credentialsProvider)
+        .build();
+    GetObjectRequest objectRequest = GetObjectRequest
+        .builder()
+        .key(key)
+        .bucket(bucket)
+        .build();
+    long start = System.currentTimeMillis();
+    CompletableFuture<GetObjectResponse> futureGet = s3AsyncClient.getObject(objectRequest,
+        AsyncResponseTransformer.toFile(new File(key)));
+    futureGet.whenComplete((resp, err) -> {
+      try {
+        if (resp != null) {
+          System.out.println("Object downloaded. Details: " + resp);
+        } else {
+          err.printStackTrace();
+        }
+      } finally {
+        // Only close the client when you are completely done with it.
+        s3AsyncClient.close();
+      }
+    });
+    futureGet.join();
     long end = System.currentTimeMillis();
     long second = (end - start) / 1000;
     System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
