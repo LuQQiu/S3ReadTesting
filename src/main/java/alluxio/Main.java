@@ -41,27 +41,8 @@ public final class Main {
             .targetThroughputInGbps(20.0)
             .minimumPartSizeInBytes(8 * 1024L * 1024)
             .build();
-
-    ExecutorService service = Executors.newFixedThreadPool(20);
-    S3TransferManager transferManager =
-        S3TransferManager.builder()
-            .s3Client(s3AsyncClient)
-            .executor(service)
-            .build();
-
-    DownloadFileRequest downloadFileRequest =
-        DownloadFileRequest.builder()
-            .getObjectRequest(b -> b.bucket(bucket).key(key))
-            .destination(new File(key))
-            .build();
-    long start = System.currentTimeMillis();
-    FileDownload downloadFile = transferManager.downloadFile(downloadFileRequest);
-    CompletedFileDownload downloadResult = downloadFile.completionFuture().join();
-    long end = System.currentTimeMillis();
-    long second = (end - start) / 1000;
-    System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
     // 83MB/s default one without executor
-    // 20 threads only 97MB/s
+    // 20 threads only 97MB/s, 460
     GetObjectRequest objectRequest = GetObjectRequest
         .builder()
         .key(key)
@@ -69,6 +50,7 @@ public final class Main {
         .build();
     File file = new File(key);
     file.delete();
+    long start= System.currentTimeMillis()
     CompletableFuture<GetObjectResponse> futureGet = s3AsyncClient.getObject(objectRequest,
         AsyncResponseTransformer.toFile(file));
     futureGet.whenComplete((resp, err) -> {
@@ -84,11 +66,9 @@ public final class Main {
       }
     });
     futureGet.join();
-    second = (System.currentTimeMillis() - end) / 1000;
+    long second = (System.currentTimeMillis() - start) / 1000;
     System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
     s3AsyncClient.close();
-    service.shutdown();
-    transferManager.close();
   }
 
   public static void getObjectWhole() throws Exception {
