@@ -141,25 +141,4 @@ public final class Main {
     // 80 MB/s
   }
 
-  public static void asyncClientWholeObject() {
-    long start = System.currentTimeMillis();
-    CompletableFuture<GetObjectResponse> futureGet = s3AsyncClient.getObject(objectRequest,
-        AsyncResponseTransformer.toFile(new File(key)));
-    futureGet.whenComplete((resp, err) -> {
-      try {
-        if (resp != null) {
-          System.out.println("Object downloaded. Details: " + resp);
-        } else {
-          err.printStackTrace();
-        }
-      } finally {
-        // Only close the client when you are completely done with it.
-        s3AsyncClient.close();
-      }
-    });
-    futureGet.join();
-    long end = System.currentTimeMillis();
-    long second = (end - start) / 1000;
-    System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
-  }
 }
