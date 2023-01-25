@@ -34,7 +34,6 @@ public final class Main {
   public static void transferManager() throws Exception {
     String key = "alluxio-2.8.1-bin.tar.gz";
     String bucket = "lu-asf-demo";
-    Region region = Region.US_EAST_1;
     S3AsyncClient s3AsyncClient =
         S3AsyncClient.crtBuilder()
             .credentialsProvider(DefaultCredentialsProvider.create())
@@ -62,6 +61,29 @@ public final class Main {
     long second = (end - start) / 1000;
     System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
     // 83MB/s default one without executor
+    // 20 threads only 97MB/s
+    GetObjectRequest objectRequest = GetObjectRequest
+        .builder()
+        .key(key)
+        .bucket(bucket)
+        .build();
+    CompletableFuture<GetObjectResponse> futureGet = s3AsyncClient.getObject(objectRequest,
+        AsyncResponseTransformer.toFile(new File(key)));
+    futureGet.whenComplete((resp, err) -> {
+      try {
+        if (resp != null) {
+          System.out.println("Object downloaded. Details: " + resp);
+        } else {
+          err.printStackTrace();
+        }
+      } finally {
+        // Only close the client when you are completely done with it.
+        s3AsyncClient.close();
+      }
+    });
+    futureGet.join();
+    second = (System.currentTimeMillis() - end) / 1000;
+    System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
     s3AsyncClient.close();
     service.shutdown();
     transferManager.close();
@@ -93,6 +115,7 @@ public final class Main {
     long second = (end - start) / 1000;
     System.out.printf("Downloading time %s second %s MB/s throughput%n", second, 1.8 * 1024 / second);
     // 92 MB/s
+    // 92 MB/s
   }
 
   public static void readAsBytesWholeObject() {
@@ -119,19 +142,6 @@ public final class Main {
   }
 
   public static void asyncClientWholeObject() {
-    String key = "alluxio-2.8.1-bin.tar.gz";
-    String bucket = "lu-asf-demo";
-    ProfileCredentialsProvider credentialsProvider = ProfileCredentialsProvider.create();
-    Region region = Region.US_EAST_1;
-    S3AsyncClient s3AsyncClient = S3AsyncClient.builder()
-        .region(region)
-        .credentialsProvider(credentialsProvider)
-        .build();
-    GetObjectRequest objectRequest = GetObjectRequest
-        .builder()
-        .key(key)
-        .bucket(bucket)
-        .build();
     long start = System.currentTimeMillis();
     CompletableFuture<GetObjectResponse> futureGet = s3AsyncClient.getObject(objectRequest,
         AsyncResponseTransformer.toFile(new File(key)));
