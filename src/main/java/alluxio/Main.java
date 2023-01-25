@@ -27,7 +27,6 @@ public final class Main {
     transferManager();
     getObjectWhole();
     readAsBytesWholeObject();
-    asyncClientWholeObject();
     System.exit(0);
   }
 
